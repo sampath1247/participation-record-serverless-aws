@@ -2,7 +2,6 @@
 Attendance verification on AWS: upload photo → match face/name with Rekognition/Textract → store result in DynamoDB; API Gateway + Lambda + S3; Amplify frontend.
 # Serverless Participation Verification on AWS (Face + Name)
 
-Course: Applications Database Systems  
 Author: Sampath Valluri (sampathvalluri18@gmail.com)
 
 A serverless web app that verifies student participation using:
