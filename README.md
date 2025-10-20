@@ -3,7 +3,7 @@ Attendance verification on AWS: upload photo → match face/name with Rekognitio
 # Serverless Participation Verification on AWS (Face + Name)
 
 Course: Applications Database Systems  
-Author: Sampath Valluri (svalluri1@uco.edu)
+Author: Sampath Valluri (sampathvalluri18@gmail.com)
 
 A serverless web app that verifies student participation using:
 - Face matching with Amazon Rekognition against a reference classroom photo in S3
