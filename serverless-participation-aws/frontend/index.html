@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Participation Record Project 2</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      color: #333;
+    }
+    label {
+      font-weight: bold;
+    }
+    input, button, textarea {
+      padding: 8px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e3e3e3;
+      border: 1px solid #ccc;
+      white-space: pre-wrap;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .instructions {
+      font-size: 0.9em;
+      color: #555;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Participation Record</h1>
+    <p class="instructions">
+      Upload the photo(s) you want to process. These images (e.g. your in‑class photo or Zoom screenshot) will be sent to our Lambda function for comparison against reference images stored in S3.<br>
+      Enter your name, email, and class date below.
+    </p>
+    <!-- Form for file upload and user details -->
+    <form id="participationForm">
+      <label for="photoUpload">Select Photo(s) to Upload:</label>
+      <input type="file" id="photoUpload" name="photoUpload" accept="image/*" multiple required>
+      
+      <label for="studentName">Name:</label>
+      <input type="text" id="studentName" name="studentName" placeholder="Enter your full name" required>
+      
+      <label for="studentEmail">Email:</label>
+      <input type="email" id="studentEmail" name="studentEmail" placeholder="Enter your email address" required>
+      
+      <label for="classDate">Class Date (YYYY-MM-DD):</label>
+      <input type="text" id="classDate" name="classDate" placeholder="e.g., 2025-03-07" required>
+      
+      <button type="button" onclick="uploadAndProcess()">Upload & Process Image</button>
+    </form>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // Read a file and return a Promise that resolves with an object containing its name and base64 content.
+    function readFile(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          // e.target.result contains the Data URL (e.g., "data:image/png;base64,...")
+          resolve({
+            fileName: file.name,
+            fileContent: e.target.result
+          });
+        };
+        reader.onerror = function(error) {
+          reject(error);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Function to handle the entire process: read file(s), build payload, and send to API Gateway.
+    function uploadAndProcess() {
+      var fileInput = document.getElementById('photoUpload');
+      var files = fileInput.files;
+      var studentName = document.getElementById('studentName').value;
+      var studentEmail = document.getElementById('studentEmail').value;
+      var classDate = document.getElementById('classDate').value;
+      
+      if (files.length === 0) {
+        document.getElementById('result').innerHTML = "<strong>Error:</strong> Please select at least one file.";
+        return;
+      }
+      
+      // Create an array of Promises to read each file as a base64 string.
+      var readPromises = [];
+      for (var i = 0; i < files.length; i++) {
+        readPromises.push(readFile(files[i]));
+      }
+      
+      // Once all files are read, build the payload and send it to the API Gateway endpoint.
+      Promise.all(readPromises)
+        .then(function(fileDataArray) {
+          // Construct payload with an array of file objects.
+          var payload = {
+              files: fileDataArray,  // Each object: { fileName, fileContent }
+              name: studentName,
+              email: studentEmail,
+              classDate: classDate
+          };
+          
+          // API Gateway endpoint URL (update this with your actual endpoint)
+          var apiUrl = "https://82ih80gpaa.execute-api.us-east-1.amazonaws.com/dev/image_processing"; 
+          
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", apiUrl, true);
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.withCredentials = false;
+          
+          xhr.onreadystatechange = function() {
+              if (xhr.readyState === XMLHttpRequest.DONE) {
+                  if (xhr.status === 200) {
+                      try {
+                        var responseObj = JSON.parse(xhr.responseText);
+                        var responseBody = JSON.parse(responseObj.body);
+                        var output = "<strong>Response:</strong><br>";
+                        output += "Name: " + responseBody.name + "<br>";
+                        output += "Email: " + responseBody.email + "<br>";
+                        output += "Class Date: " + responseBody.classDate + "<br>";
+                        output += "Participation: " + responseBody.participation + "<br>";
+                        // Display which factor contributed to participation if provided
+                        if(responseBody.details){
+                          output += "Face Participation: " + responseBody.details.faceParticipation + "<br>";
+                          output += "Name Participation: " + responseBody.details.nameParticipation + "<br>";
+                        }
+                        document.getElementById('result').innerHTML = output;
+                      } catch(e) {
+                        document.getElementById('result').innerHTML = "<strong>Response:</strong><br>" + xhr.responseText;
+                      }
+                  } else {
+                      document.getElementById('result').innerHTML = "<strong>Error:</strong> " + xhr.responseText;
+                  }
+              }
+          };
+          
+          xhr.onerror = function() {
+              document.getElementById('result').innerHTML = "<strong>CORS Error:</strong> Failed to communicate with API";
+          };
+          
+          xhr.send(JSON.stringify(payload));
+        })
+        .catch(function(error) {
+          document.getElementById('result').innerHTML = "<strong>File Read Error:</strong> " + error;
+        });
+    }
+  </script>
+</body>
+</html>
